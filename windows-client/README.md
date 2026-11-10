@@ -38,6 +38,34 @@ Vul daar in:
 - `hotkey`: globale sneltoets (bijv. `ctrl+shift+t`). Start de app eventueel als
   administrator als de sneltoets niet reageert.
 
+## Testen op Ubuntu/Linux (CLI-modus)
+
+De tray-app zelf draait alleen op Windows, maar de hele keten — taaldetectie,
+server-aanroep, skill, resultaat — test je op Ubuntu met de CLI-modus:
+
+```bash
+# 1. Server lokaal draaien (zonder Docker kan ook):
+cd ..
+pip install -r requirements.txt
+APP_API_KEY=test-key MISTRAL_API_KEY=<jouw-mistral-key> \
+  python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# (met Docker: .env met DOMAIN=localhost -> docker compose up -d --build,
+#  dan --server https://localhost)
+
+# 2. Client in CLI-modus:
+cd windows-client
+pip install requests pyperclip        # pystray/pillow/keyboard/tkinter zijn hier niet nodig
+python support_agent.py --cli "Ichliebe meinem frau" --server http://127.0.0.1:8000 --api-key test-key
+# doeltaal forceren:
+python support_agent.py --cli "Hello, the system is not working well" --server http://127.0.0.1:8000 --api-key test-key --target nl
+# tekst via stdin:
+echo "Hallo wereld, hoe gaat het met je?" | python support_agent.py --cli - --server http://127.0.0.1:8000 --api-key test-key
+```
+
+Bij `auto` detecteert de client de invoer (NL → laatst gebruikte andere taal, EN/DE → NL).
+Op een headless Ubuntu zonder klembord-backend print de CLI alleen het resultaat;
+installeer `xclip` (`sudo apt install xclip`) als je het klembord wilt testen.
+
 ## Als .exe bouwen (PyInstaller)
 
 ```powershell
