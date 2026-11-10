@@ -7,23 +7,19 @@ klembord.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
 import queue
 import re
+import sys
 import threading
 import time
 from pathlib import Path
 
-import keyboard
 import pyperclip
 import requests
-import tkinter as tk
-from tkinter import messagebox, scrolledtext, simpledialog, ttk
-
-from PIL import Image, ImageDraw
-from pystray import Icon, Menu, MenuItem
 
 APP_NAME = "SupportAgent"
 CONFIG_DIR = Path(os.environ.get("APPDATA") or Path.home()) / APP_NAME
@@ -50,11 +46,14 @@ _DUTCH = {
     "de", "het", "een", "en", "van", "te", "dat", "die", "dit", "niet", "ik", "jij", "je",
     "wij", "zijn", "is", "was", "waren", "met", "voor", "op", "aan", "in", "om", "ook",
     "als", "nog", "wel", "hoe", "wat", "wie", "waar", "naar", "bij", "uit", "door", "over",
+    "huis", "liefde", "goed", "slecht", "auto", "heb", "ben", "wil", "kan", "zal",
 }
 _GERMAN = {
     "der", "die", "das", "und", "ist", "nicht", "ich", "du", "wir", "sie", "mit", "für",
     "auf", "ein", "eine", "zu", "von", "den", "dem", "des", "sich", "auch", "wie", "was",
     "aber", "oder", "wenn", "noch", "im", "am", "zum", "zur",
+    "meinem", "meine", "mein", "liebe", "lieben", "frau", "mann", "bin", "habe", "haus",
+    "auto", "gut", "schlecht",
 }
 _ENGLISH = {
     "the", "and", "is", "are", "was", "to", "of", "a", "an", "in", "that", "it", "for",
@@ -261,7 +260,7 @@ class TrayApp:
         self.cfg = load_config()
         self.root = tk.Tk()
         self.root.withdraw()
-        self.icon: Icon | None = None
+        self.icon = None
         self.popups: dict = {}
 
     def run(self) -> None:
@@ -417,7 +416,55 @@ class TrayApp:
         )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Support-Agent client: Windows tray-app, of CLI-testmodus (--cli) die ook op Linux werkt"
+    )
+    parser.add_argument("--cli", metavar="TEKST", default=None,
+                        help="CLI-modus: verwerk TEKST direct en print het resultaat ('-' = lees stdin)")
+    parser.add_argument("--server", help="overschrijft server_url uit de config")
+    parser.add_argument("--api-key", help="overschrijft api_key uit de config")
+    parser.add_argument("--skill", help="overschrijft skill uit de config")
+    parser.add_argument("--target", choices=["nl", "en", "de"], default=None,
+                        help="doeltaal (standaard: auto op basis van gedetecteerde invoer)")
+    parser.add_argument("--extra", default=None, help="extra informatie voor de skill")
+    return parser.parse_args()
+
+
+def run_cli(args: argparse.Namespace) -> None:
+    setup_logging()
+    cfg = load_config()
+    if args.server:
+        cfg["server_url"] = args.server
+    if args.api_key:
+        cfg["api_key"] = args.api_key
+    if args.skill:
+        cfg["skill"] = args.skill
+    text = sys.stdin.read().strip() if args.cli == "-" else args.cli
+    if not text:
+        raise SystemExit("Geen tekst meegegeven: gebruik --cli TEKST of --cli - (stdin)")
+    result = process_text(cfg, text, skill=args.skill, target=args.target, extra=args.extra)
+    print(f"[gedetecteerde invoer: {result['source_language']} | doeltaal: {result['target_language']} | skill: {result['skill']}]",
+          file=sys.stderr)
+    print(result["result"])
+    try:
+        pyperclip.copy(result["result"])
+        print("(resultaat staat ook op het klembord)", file=sys.stderr)
+    except Exception:
+        print("(geen klembord-backend gevonden; resultaat staat hierboven)", file=sys.stderr)
+
+
 def main() -> None:
+    args = parse_args()
+    if args.cli is not None:
+        run_cli(args)
+        return
+    global tk, ttk, scrolledtext, messagebox, simpledialog, keyboard, Icon, Menu, MenuItem, Image, ImageDraw
+    import tkinter as tk
+    from tkinter import messagebox, scrolledtext, simpledialog, ttk
+    import keyboard
+    from pystray import Icon, Menu, MenuItem
+    from PIL import Image, ImageDraw
     setup_logging()
     log.info("Support-Agent client gestart")
     TrayApp().run()

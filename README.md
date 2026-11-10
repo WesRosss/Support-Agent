@@ -107,6 +107,8 @@ standaard naar NL.
 pip install -r requirements-dev.txt
 python -m pytest tests/ -q          # server tests (Mistral wordt gemockt)
 docker compose config               # valideer compose-bestand
+# client end-to-end testen op Linux (CLI-modus): zie windows-client/README.md
+python windows-client/support_agent.py --cli "Ichliebe meinem frau" --server http://127.0.0.1:8000 --api-key <APP_API_KEY>
 ```
 
 ## Beveiliging
