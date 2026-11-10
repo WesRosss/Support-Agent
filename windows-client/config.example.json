@@ -1,0 +1,9 @@
+{
+  "server_url": "https://app.jouwdomein.nl",
+  "api_key": "APP_API_KEY-uit-jouw-.env",
+  "skill": "support-communication",
+  "target_language": "auto",
+  "last_used_language": "en",
+  "extra": "",
+  "hotkey": "ctrl+shift+t"
+}
